@@ -4,13 +4,28 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { OpenAI } from 'openai';
-import { TTSService } from './services/tts.service';
+import axios from 'axios';
 
 dotenv.config();
 
+console.log('Environment variables loaded:');
+console.log('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'Configured' : 'Not configured');
+console.log('GOOGLE_API_KEY:', process.env.GOOGLE_API_KEY ? 'Configured' : 'Not configured');
+console.log('GOOGLE_CSE_ID:', process.env.GOOGLE_CSE_ID ? 'Configured' : 'Not configured');
+
 // Validate environment variables
-if (!process.env.OPENAI_API_KEY) {
-  console.error('OPENAI_API_KEY is not set in environment variables');
+const requiredEnvVars = {
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+  GOOGLE_CSE_ID: process.env.GOOGLE_CSE_ID
+};
+
+const missingEnvVars = Object.entries(requiredEnvVars)
+  .filter(([_, value]) => !value)
+  .map(([key]) => key);
+
+if (missingEnvVars.length > 0) {
+  console.error('Missing required environment variables:', missingEnvVars.join(', '));
   process.exit(1);
 }
 
@@ -30,10 +45,101 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-const ttsService = new TTSService(process.env.OPENAI_API_KEY);
-
 // Memory for last 3 instructions per user
 const userInstructions = new Map<string, string[]>();
+
+// Replace TTSService usage with direct function
+const ttsTextToSpeech = async (text: string, openai: any) => {
+  try {
+    const response = await openai.audio.speech.create({
+      model: "tts-1",
+      voice: "alloy",
+      input: text,
+    });
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return buffer;
+  } catch (error) {
+    console.error('Error in text-to-speech conversion:', error);
+    throw new Error('Failed to convert text to speech');
+  }
+};
+
+// Add Google Custom Search integration
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+const GOOGLE_CSE_ID = process.env.GOOGLE_CSE_ID;
+const GOOGLE_SEARCH_ENDPOINT = 'https://www.googleapis.com/customsearch/v1';
+
+// Add test endpoint for search
+app.get('/test-search', async (req, res) => {
+  try {
+    const testQuery = 'cat drawing';
+    console.log('Testing search with query:', testQuery);
+    const images = await searchImages(testQuery);
+    res.json({ success: true, images });
+  } catch (error) {
+    console.error('Test search error:', error);
+    res.status(500).json({ success: false, error: 'Search test failed' });
+  }
+});
+
+async function searchImages(query: string, count = 3): Promise<string[]> {
+  if (!GOOGLE_API_KEY || !GOOGLE_CSE_ID) {
+    console.error('Google Search API credentials missing:', {
+      hasKey: !!GOOGLE_API_KEY,
+      hasCseId: !!GOOGLE_CSE_ID
+    });
+    return [];
+  }
+  try {
+    console.log('Searching Google Images with query:', query);
+    const response = await axios.get(GOOGLE_SEARCH_ENDPOINT, {
+      params: {
+        key: GOOGLE_API_KEY,
+        cx: GOOGLE_CSE_ID,
+        searchType: 'image',
+        q: query,
+        num: count
+      }
+    });
+    console.log('Google Search API response:', {
+      status: response.status,
+      itemsCount: response.data.items?.length || 0
+    });
+    const images = (response.data.items || []).map((item: any) => item.link).slice(0, count);
+    console.log('Found images:', images);
+    return images;
+  } catch (e: any) {
+    console.error('Google image search error:', {
+      message: e.message,
+      response: e.response?.data,
+      status: e.response?.status
+    });
+    return [];
+  }
+}
+
+// Add at the top:
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+
+async function openaiVisionRequest(messages: any, max_tokens = 50) {
+  try {
+    const response = await axios.post(OPENAI_API_URL, {
+      model: 'gpt-4-turbo',
+      messages,
+      max_tokens
+    }, {
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.data;
+  } catch (e: any) {
+    console.error('OpenAI Vision API error:', e.response?.data || e);
+    throw new Error('Failed to get vision response');
+  }
+}
 
 // Log connection events
 io.on('connection', (socket) => {
@@ -72,15 +178,9 @@ io.on('connection', (socket) => {
           ]
         }
       ];
-      const response = await openai.chat.completions.create({
-        model: "gpt-04-mini",
-        messages,
-        max_tokens: 50
-      });
-
-      console.log('Received response from OpenAI Vision API');
-      const feedback = response.choices[0].message.content;
-      
+      // Feedback request
+      const feedbackResponse = await openaiVisionRequest(messages, 50);
+      const feedback = feedbackResponse.choices[0].message.content;
       if (!feedback) {
         throw new Error('No feedback received from OpenAI');
       }
@@ -90,14 +190,25 @@ io.on('connection', (socket) => {
       userInstructions.set(socket.id, updatedInstructions);
 
       console.log('Converting feedback to speech...');
-      const audioBuffer = await ttsService.textToSpeech(feedback);
+      const audioBuffer = await ttsTextToSpeech(feedback, openai);
       const audioBase64 = audioBuffer.toString('base64');
       console.log('Speech conversion completed');
 
-      // Send both text and audio feedback
+      // Keyword extraction
+      const keywordPrompt = `На основе этого рисунка, дай только одно ключевое слово или короткую фразу (1-3 слова) на английском, чтобы найти референс-изображения для улучшения этого рисунка.`;
+      const keywordMessages = [
+        { role: 'system', content: keywordPrompt },
+        messages[1]
+      ];
+      const keywordResponse = await openaiVisionRequest(keywordMessages, 10);
+      const searchKeyword = keywordResponse.choices[0].message.content?.trim() || '';
+      const imageUrls = searchKeyword ? await searchImages(searchKeyword) : [];
+
+      // Send both text, audio feedback, and images
       const feedbackData = {
         text: feedback,
-        audio: `data:audio/mp3;base64,${audioBase64}`
+        audio: `data:audio/mp3;base64,${audioBase64}`,
+        images: imageUrls
       };
       
       console.log('Sending feedback to client:', socket.id);
@@ -134,8 +245,10 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = 3001;
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log('OpenAI API Key status:', process.env.OPENAI_API_KEY ? 'Configured' : 'Not configured');
+  console.log('Google API Key status:', process.env.GOOGLE_API_KEY ? 'Configured' : 'Not configured');
+  console.log('Google CSE ID status:', process.env.GOOGLE_CSE_ID ? 'Configured' : 'Not configured');
 }); 

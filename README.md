@@ -5,7 +5,7 @@ Fork this repository and build nFactorial Ai Cup 2025 projects
 
 ## < Suretshi AI >
 
-## < It uses your camera capture to analyze sketches in real time and offer personalized artistic feedback using it's voice. It analyzes fundamentals like proportions, perspective, and anatomy and gives suggestions like a real mentor would visually and conversationally >
+## < It uses user's camera to capture user's drawing process in real time to analyze sketches in real time and offer personalized artistic feedback using it's voice. It analyzes fundamentals like proportions, perspective, and anatomy and gives suggestions like a real mentor would visually and conversationally >
 
 
 ## Typeform to submit:

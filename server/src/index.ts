@@ -73,7 +73,7 @@ io.on('connection', (socket) => {
         }
       ];
       const response = await openai.chat.completions.create({
-        model: "gpt-4-turbo",
+        model: "gpt-04-mini",
         messages,
         max_tokens: 50
       });

@@ -24,18 +24,18 @@ const ReferenceImages: React.FC<ReferenceImagesProps> = ({ images, loading }) =>
   }
 
   return (
-    <div className="mt-4">
+    <div className="mt-4 w-full">
       <h4 className="text-lg font-semibold text-white mb-2">Референсы</h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full justify-items-center">
         {images.map((imageUrl, index) => (
           <div
             key={index}
-            className="relative rounded-xl overflow-hidden shadow-lg group bg-white/10 flex items-center justify-center aspect-[4/3] max-w-[140px] mx-auto md:max-w-[120px]"
+            className="rounded-xl overflow-hidden shadow-lg bg-white/10 flex items-center justify-center w-[100px] h-[100px] md:w-[120px] md:h-[120px] p-1"
           >
             <img
               src={imageUrl}
               alt={`Reference ${index + 1}`}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 rounded-xl"
+              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105 rounded-xl"
               onError={e => (e.currentTarget.style.opacity = '0.3')}
             />
           </div>

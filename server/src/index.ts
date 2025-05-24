@@ -101,12 +101,14 @@ async function searchImages(query: string, count = 3): Promise<string[]> {
         num: count
       }
     });
-    console.log('Google Search API response:', {
-      status: response.status,
-      itemsCount: response.data.items?.length || 0
-    });
-    const images = (response.data.items || []).map((item: any) => item.link).slice(0, count);
-    console.log('Found images:', images);
+    // Log the full response for debugging
+    console.log('Raw Google Search API response:', JSON.stringify(response.data, null, 2));
+    if (!response.data.items) {
+      console.warn('No items array in Google API response');
+      return [];
+    }
+    const images = response.data.items.map((item: any) => item.link).filter(Boolean).slice(0, count);
+    console.log('Extracted image URLs:', images);
     return images;
   } catch (e: any) {
     console.error('Google image search error:', {

@@ -26,16 +26,18 @@ const ReferenceImages: React.FC<ReferenceImagesProps> = ({ images, loading }) =>
   return (
     <div className="mt-4">
       <h4 className="text-lg font-semibold text-white mb-2">Референсы</h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
         {images.map((imageUrl, index) => (
-          <div key={index} className="relative aspect-video rounded-lg overflow-hidden shadow-lg group">
+          <div
+            key={index}
+            className="relative rounded-xl overflow-hidden shadow-lg group bg-white/10 flex items-center justify-center aspect-[4/3] max-w-[140px] mx-auto md:max-w-[120px]"
+          >
             <img
               src={imageUrl}
               alt={`Reference ${index + 1}`}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 bg-white/10"
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 rounded-xl"
               onError={e => (e.currentTarget.style.opacity = '0.3')}
             />
-            {/* Optional: overlay for error */}
           </div>
         ))}
       </div>

@@ -24,13 +24,14 @@ const ReferenceImages: React.FC<ReferenceImagesProps> = ({ images, loading }) =>
   }
 
   return (
-    <div className="mt-4 w-full">
+    <div className="mt-4 w-full max-w-none">
       <h4 className="text-lg font-semibold text-white mb-2">Референсы</h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full justify-items-center">
+      {/* Debug border and background */}
+      <div className="w-full max-w-none md:flex md:justify-between md:gap-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 bg-black/20 border-2 border-dashed border-pink-400 p-2">
         {images.map((imageUrl, index) => (
           <div
             key={index}
-            className="rounded-xl overflow-hidden shadow-lg bg-white/10 flex items-center justify-center w-[100px] h-[100px] md:w-[120px] md:h-[120px] p-1"
+            className="rounded-xl overflow-hidden shadow-lg bg-white/10 flex items-center justify-center w-[100px] h-[100px] md:w-[120px] md:h-[120px] p-1 border border-indigo-400"
           >
             <img
               src={imageUrl}
